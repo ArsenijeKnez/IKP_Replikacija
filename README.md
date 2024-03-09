@@ -2,7 +2,7 @@
 <p align="center">Projekat za predmet industrijski komunikacioni protokoli u infrastrukturnim sistemima</p>
 
 <p align="center">
-    <img src="https://github.com/ArsenijeKnez/IKP_Replikacija/assets/116056973/62a55cdb-fe33-4196-907b-a5bf239f0b60" alt="Image" width="500" height="200">
+    <img src="https://github.com/ArsenijeKnez/IKP_Replikacija/assets/116056973/5ccbc4d6-02e5-46ab-b29c-88f95a2c0dbc" alt="Image" width="600" height="230">
 </p>
 
 
