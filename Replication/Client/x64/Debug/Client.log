@@ -1,3 +1,0 @@
-﻿  Client.cpp
-C:\Users\Arsenije\Desktop\IKP-Replikacija\Replication\Client\Client.cpp(103,16): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
-  Client.vcxproj -> C:\Users\Arsenije\Desktop\IKP-Replikacija\Replication\x64\Debug\Client.exe

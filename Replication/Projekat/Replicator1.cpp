@@ -3,32 +3,28 @@
 int  main(void)
 {
     int numOfProcess = 0;
-    // Socket used for listening for new clients 
     SOCKET listenSocket = INVALID_SOCKET;
-   
-    //InitProcessList(&processList);
-    cb_init(&processBuffer);
+
     InitReplicatorList(&head);
-    
-    // variable used to store function return value
+    cb_init(&processBuffer);
+
     int iResult;
-    // Buffer used for storing incoming data
-    
+
 
     if (InitializeWindowsSockets() == false)
     {
+
         return 1;
     }
 
-    // Prepare address information structures
     addrinfo* resultingAddress = NULL;
     addrinfo hints;
 
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;       // IPv4 address
-    hints.ai_socktype = SOCK_STREAM; // Provide reliable data streaming
-    hints.ai_protocol = IPPROTO_TCP; // Use TCP protocol
-    hints.ai_flags = AI_PASSIVE;     // 
+    hints.ai_family = AF_INET;       
+    hints.ai_socktype = SOCK_STREAM; 
+    hints.ai_protocol = IPPROTO_TCP; 
+    hints.ai_flags = AI_PASSIVE;     
 
     // Resolve the server address and port
     iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &resultingAddress);
@@ -40,9 +36,9 @@ int  main(void)
     }
 
     // Create a SOCKET for connecting to server
-    listenSocket = socket(AF_INET,      // IPv4 address famly
-        SOCK_STREAM,  // stream socket
-        IPPROTO_TCP); // TCP
+    listenSocket = socket(AF_INET,     
+        SOCK_STREAM,  
+        IPPROTO_TCP); 
 
     if (listenSocket == INVALID_SOCKET)
     {
@@ -52,8 +48,7 @@ int  main(void)
         return 1;
     }
 
-    // Setup the TCP listening socket - bind port number and local address 
-    // to socket
+
     iResult = bind(listenSocket, resultingAddress->ai_addr, (int)resultingAddress->ai_addrlen);
     if (iResult == SOCKET_ERROR)
     {
@@ -64,10 +59,7 @@ int  main(void)
         return 1;
     }
 
-
-
-    // Since we don't need resultingAddress any more, free it
-    //freeaddrinfo(resultingAddress);
+    freeaddrinfo(resultingAddress);
 
     // Set listenSocket in listening mode
     iResult = listen(listenSocket, SOMAXCONN);
@@ -78,46 +70,8 @@ int  main(void)
         WSACleanup();
         return 1;
     }
-    SOCKET connectSocket = INVALID_SOCKET;
 
-    if (InitializeWindowsSockets() == false)
-    {
-        // we won't log anything since it will be logged
-        // by InitializeWindowsSockets() function
-        return 1;
-    }
-
-    // create a socket
-    connectSocket = socket(AF_INET,
-        SOCK_STREAM,
-        IPPROTO_TCP);
-
-    if (connectSocket == INVALID_SOCKET)
-    {
-        printf("socket failed with error: %ld\n", WSAGetLastError());
-        WSACleanup();
-        return 1;
-    }
-
-    // create and initialize address structure
-    sockaddr_in serverAddress;
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serverAddress.sin_port = htons(27016);
-    // connect to server specified in serverAddress and socket connectSocket
-    if (connect(connectSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
-    {
-        printf("Unable to connect to server.\n");
-        closesocket(connectSocket);
-    }
-
-    DWORD funId;
-
-    handleConnect= CreateThread(NULL, 0, &handleConnectSocket, &connectSocket, 0, &funId);
-
-#pragma endregion 
-
-    printf("Waiting connection with Replicator1...\n");
+    printf("Waiting connection with Replicator2...\n");
     int numberOfClients = 0;
 
     replicatorSocket = accept(listenSocket, NULL, NULL);
@@ -131,12 +85,48 @@ int  main(void)
     }
     else
     {
-        printf("Connection with Replicator1 established.\n");
+        // socket used to communicate with server
+        SOCKET connectSocket = INVALID_SOCKET;
+
+        if (InitializeWindowsSockets() == false)
+        {
+
+            return 1;
+        }
+
+        // create a socket
+        connectSocket = socket(AF_INET,
+            SOCK_STREAM,
+            IPPROTO_TCP);
+
+        if (connectSocket == INVALID_SOCKET)
+        {
+            printf("socket failed with error: %ld\n", WSAGetLastError());
+            WSACleanup();
+            return 1;
+        }
+
+        // create and initialize address structure
+        sockaddr_in serverAddress;
+        serverAddress.sin_family = AF_INET;
+        serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+        serverAddress.sin_port = htons(DEFAULT_PORT_R2);
+        // connect to server specified in serverAddress and socket connectSocket
+        if (connect(connectSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
+        {
+            printf("Unable to connect to server.\n");
+            closesocket(connectSocket);
+        }
+        printf("Connection with Replicator2 established.\n");
+
+        handleConnect = CreateThread(NULL, 0, &handleConnectSocket, &connectSocket, 0, NULL);
+
         printf("Server initialized, waiting for clients.\n");
     }
+
     do
     {
-        
+
         acceptedSockets[numberOfClients] = accept(listenSocket, NULL, NULL);
 
         if (acceptedSockets[numberOfClients] == INVALID_SOCKET)
@@ -150,51 +140,50 @@ int  main(void)
         }
 
         //POKRETANJE NITI ZA SVAKOG KLIJENTA(PROCES)
-
         
         GUID Id;
         CoCreateGuid(&Id);
+
         processAdd[numberOfClients] = InitProcess(Id, acceptedSockets[numberOfClients], numOfProcess);
+
         char output[DEFAULT_BUFLEN];
         guidToString(&Id, output);
         printf("New client added: %s", output);
         PushBack(&head, processAdd[numberOfClients]);
         PrintAllProcesses(&head);
         numOfProcess++;
-        //nit koja radi samo sa ovim procesom
         handle[numberOfClients] = CreateThread(NULL, 0, &handleSocket, &processAdd[numberOfClients], 0, NULL);
 
         numberOfClients++;
 
     } while (appRunning);
 
+    //CloseHandle(handleConnect);
+
+    //for (int i = 0; i < numberOfClients; ++i) {
+    //    CloseHandle(handle[i]);
+    //}
+
+    //for (int i = 0; i < 10; i++)
+    //{
+    //    iResult = shutdown(acceptedSockets[i], SD_SEND);
+    //    if (iResult == SOCKET_ERROR)
+    //    {
+    //        printf("shutdown failed with error: %d\n", WSAGetLastError());
+    //        closesocket(acceptedSockets[i]);
+    //        WSACleanup();
+    //        return 1;
+    //    }
+
+    //    closesocket(acceptedSockets[i]);
+    //}
+
     closesocket(listenSocket);
-   /* WaitForSingleObject(handleConnect, INFINITE);
-    CloseHandle(handleConnect);
-
-    WaitForMultipleObjects(numberOfClients, handle, TRUE, INFINITE);
-
-    for (int i = 0; i < numberOfClients; ++i) {
-        CloseHandle(handle[i]);
-    }
-
-    for (int i = 0; i < 10; i++)
-    {
-        iResult = shutdown(acceptedSockets[i], SD_SEND);
-        if (iResult == SOCKET_ERROR)
-        {
-            printf("shutdown failed with error: %d\n", WSAGetLastError());
-            closesocket(acceptedSockets[i]);
-            WSACleanup();
-            return 1;
-        }
-
-        closesocket(acceptedSockets[i]);
-    }*/
     WSACleanup();
 
     return 0;
 }
+
 
 
 DWORD WINAPI handleSocket(LPVOID lpParam)
@@ -204,7 +193,6 @@ DWORD WINAPI handleSocket(LPVOID lpParam)
     GUID Id = process->processId;
     int iResult;
     char recvbuf[512];
-    int brojac = 0;
     circular_buffer tempBuffer;
     cb_init(&tempBuffer);
     bool first = true;
@@ -221,6 +209,7 @@ DWORD WINAPI handleSocket(LPVOID lpParam)
     if (iResult != NO_ERROR) {
         printf("ioctlsocket failed with error: %ld\n", iResult);
         closesocket(acceptedSocket);
+
     }
     fd_set readfds;
     FD_ZERO(&readfds);
@@ -243,7 +232,6 @@ DWORD WINAPI handleSocket(LPVOID lpParam)
         else if (result == SOCKET_ERROR)
         {
             //desila se greska prilikom poziva funkcije
-            //desila se greska prilikom poziva funkcije
             printf("Select failed with error: %d\n", WSAGetLastError());
             closesocket(acceptedSocket);
             WSACleanup();
@@ -254,36 +242,35 @@ DWORD WINAPI handleSocket(LPVOID lpParam)
             char output[DEFAULT_BUFLEN];
             iResult = recv(acceptedSocket, recvbuf, DEFAULT_BUFLEN, 0);
             if (iResult > 0) {
-                
-                if (strcmp(recvbuf, "CallBack!@#$%^&&*")==0) {
-                     cb_print(&processBuffer);
-                     char* data = cb_sOne(&processBuffer);
-                     if (data == NULL) {
-                         char noData[DEFAULT_BUFLEN] = "NULL";
-                         int iResult = send(acceptedSocket, noData, (int)strlen(noData) + 1, 0);
-                         if (iResult == SOCKET_ERROR)
-                         {
-                             printf("sendto failed with error: %d\n", WSAGetLastError());
-                             closesocket(acceptedSocket);
-                             WSACleanup();
-                             return false;
-                         }
-                     }
-                     else {
-                         int iResult = send(acceptedSocket, data, (int)strlen(data) + 1, 0);
-                         if (iResult == SOCKET_ERROR)
-                         {
-                             printf("sendto failed with error: %d\n", WSAGetLastError());
-                             closesocket(acceptedSocket);
-                             WSACleanup();
-                             return false;
-                         }
-                     }
-                     free(data);
-                     continue;
+                if (strcmp(recvbuf, "CallBack!@#$%^&&*") == 0) {
+                    cb_print(&processBuffer);
+                    char* data = cb_sOne(&processBuffer);
+                    if (data == NULL) {
+                        char noData[DEFAULT_BUFLEN] = "NULL";
+                        int iResult = send(acceptedSocket, noData, (int)strlen(noData) + 1, 0);
+                        if (iResult == SOCKET_ERROR)
+                        {
+                            printf("sendto failed with error: %d\n", WSAGetLastError());
+                            closesocket(acceptedSocket);
+                            WSACleanup();
+                            return false;
+                        }
+                    }
+                    else{
+                        int iResult = send(acceptedSocket, data, (int)strlen(data) + 1, 0);
+                        if (iResult == SOCKET_ERROR)
+                        {
+                            printf("sendto failed with error: %d\n", WSAGetLastError());
+                            closesocket(acceptedSocket);
+                            WSACleanup();
+                            return false;
+                        }
+                    }
+                    free(data);
+                    continue;
                 }
                 else if (strcmp(recvbuf, "Replicate!@#$%^&&*") == 0) {
-
+                   
                     DATA d = cb_pop_front(&tempBuffer);
                     while (d.data[0] != '\0') {
                         cb_push_back(&processBuffer, d);
@@ -321,56 +308,57 @@ DWORD WINAPI handleSocket(LPVOID lpParam)
                     CloseHandle(handle[process->index]);
                     handle[process->index] = NULL;
 
-
                     return 0;
                 }
-                    guidToString(&process->processId, output);
-                    printf("Message received: %s, from index: %d\n", recvbuf, process->index);
-                    brojac++;
-
-                    if (first) {
-                        if (strcmp(recvbuf, "Synchrone replication.") == 0) {
-                            async = false;
-                        }
-                        else if (strcmp(recvbuf, "Asynchrone replication.") == 0) {
-                            async = true;
-                        }
-                        else {
-                            printf("Bad connection with process: %s", output);
-                            closesocket(acceptedSocket);
-                            WSACleanup();
-                            CloseHandle(handle[process->index]);
-
-                            return 0;
-                        }
-                        first = false;
+                guidToString(&process->processId, output);
+                printf("Message received: %s, from index: %d\n", recvbuf, process->index);
+                if (first) {
+                    if (strcmp(recvbuf, "Synchrone replication.") == 0) {
+                        async = false;
                     }
-
-                    DATA data = InitData(recvbuf);
-
-                    if (async) {
-                        cb_push_back(&tempBuffer, data);
+                    else if (strcmp(recvbuf, "Asynchrone replication.") == 0) {
+                        async = true;
                     }
                     else {
+                        printf("Bad connection with process: %s", output);
+                        closesocket(acceptedSocket);
+                        WSACleanup();
+                        CloseHandle(handle[process->index]);
 
-                        cb_push_back(&processBuffer, data);
-
-                        char temp[DEFAULT_BUFLEN] = "";
-
-                        char num[5];
-                        _itoa(process->index, num, 10);
-                        strcat(temp, num);
-                        strcat(temp, recvbuf);
-                        send(replicatorSocket, temp, (int)strlen(temp) + 1, 0);
+                        return 0;
                     }
-                   
+                    first = false;
+                }
+
+                DATA data = InitData(recvbuf);
+
+                if (async) {
+                    cb_push_back(&tempBuffer, data);
+                }
+                else{
+                    
+                    cb_push_back(&processBuffer, data);
+                    char temp[DEFAULT_BUFLEN] = "";
+
+
+
+                    char num[5];
+                    _itoa(process->index, num, 10);
+                    strcat(temp, num);
+                    strcat(temp, recvbuf);
+                    send(replicatorSocket, temp, (int)strlen(temp) + 1, 0);
+                }
+
             }
-           
+            //stavi poruku u njenu listu
+
         }
     } while (appRunning);
     CloseHandle(handle[process->index]);
     return 0;
 }
+
+
 
 DWORD WINAPI handleConnectSocket(LPVOID lpParam)
 {
@@ -399,8 +387,8 @@ DWORD WINAPI handleConnectSocket(LPVOID lpParam)
     WSACleanup();
     CloseHandle(handleConnect);
     return 0;
-
 }
+
 
 bool InitializeWindowsSockets()
 {
